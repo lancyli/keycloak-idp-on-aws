@@ -6,8 +6,8 @@
 
 | 目录 | 区域 | 公网入口 | 说明 |
 |------|------|----------|------|
-| [`us-west-2/`](./us-west-2/) | 美西（俄勒冈）`us-west-2` | **CloudFront + ALB** | 标准商业区版本，CloudFront 提供默认 HTTPS |
-| [`ZHY/`](./ZHY/) | 中国宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | AWS 中国（`aws-cn`）适配版；中国区 CloudFront 需 ICP 备案，故以 ALB 为入口 |
+| [`us-west-2/`](./us-west-2/) | 美西（俄勒冈）`us-west-2` | **CloudFront + ALB** | CloudFront 提供默认 HTTPS |
+| [`ZHY/`](./ZHY/) | 中国宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | AWS 中国（`aws-cn`）需 ICP 备案 |
 
 ## 架构
 
@@ -51,7 +51,7 @@ npx cdk bootstrap aws://<账号ID>/<区域>
 npx cdk deploy --all
 ```
 
-> 部署前的完整检查清单、两阶段固定 KC_HOSTNAME、中国区特殊适配（ECR 镜像、ICP 备案等）请阅读对应目录的**部署手册**。
+> 部署前的完整检查清单、两阶段固定 KC_HOSTNAME、特定适配（ECR 镜像、ICP 备案等）请阅读对应目录的**部署手册**。
 
 ## 安全说明
 
