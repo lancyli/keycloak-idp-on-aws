@@ -1,0 +1,16 @@
+*.js
+!jest.config.js
+*.d.ts
+node_modules
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+# Cached context lookups (account/region/AZ specific) — must not ship to customers
+cdk.context.json
+# misc
+*.log
+.DS_Store
+.env
+# Local secrets / credential dumps — NEVER commit
+*.local.txt
+keycloak-admin.*.txt

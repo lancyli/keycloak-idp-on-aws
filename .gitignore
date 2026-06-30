@@ -1,0 +1,28 @@
+# Repo-root safety net for both subprojects (us-west-2/ and ZHY/)
+
+# Node / CDK
+node_modules/
+.cdk.staging/
+cdk.out/
+*.js
+*.d.ts
+!jest.config.js
+
+# Account/region/AZ-specific CDK context cache — must not ship
+cdk.context.json
+
+# Secrets / credential dumps — NEVER commit
+*.local.txt
+keycloak-admin.*.txt
+.env
+.env.*
+*.pem
+*.key
+id_rsa*
+*.kubeconfig
+credentials
+*credentials*
+
+# misc
+*.log
+.DS_Store

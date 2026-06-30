@@ -1,0 +1,25 @@
+{
+  "name": "keycloak-ha-cn-cdk",
+  "version": "1.0.0",
+  "description": "HA Keycloak IdP on AWS China (cn-northwest-1 / ZHY): ALB + EKS (Graviton) + Aurora PostgreSQL (Graviton). No CloudFront.",
+  "bin": {
+    "keycloak-ha-cn": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "destroy": "cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.224.0",
+    "@aws-cdk/lambda-layer-kubectl-v32": "^2.0.0",
+    "constructs": "^10.3.0",
+    "aws-cdk": "^2.1029.0"
+  }
+}

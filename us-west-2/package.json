@@ -1,0 +1,26 @@
+{
+  "name": "keycloak-ha-cdk",
+  "version": "1.0.0",
+  "description": "Production-grade HA Keycloak IdP on AWS (CloudFront + ALB + EKS Graviton + Aurora PostgreSQL Graviton) for Amazon Quick (QuickSight) SSO",
+  "bin": {
+    "keycloak-ha-cdk": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "destroy": "cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.224.0",
+    "@aws-cdk/lambda-layer-kubectl-v35": "^2.0.0",
+    "constructs": "^10.3.0",
+    "aws-cdk": "^2.1029.0"
+  }
+}
