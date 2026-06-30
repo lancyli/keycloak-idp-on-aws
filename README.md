@@ -7,7 +7,7 @@
 | 目录 | 区域 | 公网入口 | 说明 |
 |------|------|----------|------|
 | [`us-west-2/`](./us-west-2/) | 美西（俄勒冈）`us-west-2` | **CloudFront + ALB** | CloudFront 提供默认 HTTPS |
-| [`ZHY/`](./ZHY/) | 中国宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | AWS 中国（`aws-cn`）需 ICP 备案 |
+| [`ZHY/`](./ZHY/) | 中国宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | 需 ICP 备案 |
 
 ## 架构
 
