@@ -25,8 +25,10 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
 | Partition | `arn:aws-cn:*` applied automatically by CDK when `region = cn-northwest-1`. |
 | Public entry | **ALB** (not CloudFront). HTTPS needs an ACM cert (cn-northwest-1) on an **ICP-filed** domain (`alb.certArn` + `alb.domainName`); otherwise HTTP only (testing). |
 | ALB Controller image | **Must** come from the China regional ECR — `eks.albControllerRepository`. CDK otherwise defaults to a us-west-2 account unreachable from China. **Verify the account id** and that the chosen controller version tag exists in that repo. |
-| Graviton classes | Defaults to `m6g.large` (nodes) and `r6g.large` (Aurora) — broadly available in cn-northwest-1. Verify before using `m7g`/`r7g`. |
-| EKS version | Defaults to `1.32`. **Verify** with `aws eks describe-cluster-versions --region cn-northwest-1` and keep the `@aws-cdk/lambda-layer-kubectl-vXX` package (package.json) matched to it. |
+| Graviton classes | `m7g.large` (nodes) and `r7g.large` (Aurora) — Graviton3, verified available in cn-northwest-1 (3 AZs) via the china profile; matches us-west-2. |
+| EKS version | `1.35` (matches us-west-2). cn-northwest-1 already supports up to 1.36, but pinned to `1.35` to match the available `@aws-cdk/lambda-layer-kubectl-v35` (no v36 package yet). |
+| EKS managed add-ons | `vpc-cni`, `kube-proxy`, `coredns`, `metrics-server` are installed as **EKS managed add-ons** (`resolveConflicts=OVERWRITE`) — visible in the console Add-ons tab and one-click upgradable; `metrics-server` powers CPU-based HPA. China managed add-on images are pulled from the regional ECR (`961992271922`) automatically. |
+| ALB Controller | Version `v2.17.1` (matches us-west-2). |
 | Keycloak image | `quay.io` is unreliable in China — push the image to ECR cn-northwest-1 and set `keycloak.image`. |
 | CSI driver / provider images | Helm images pull from `registry.k8s.io` / `public.ecr.aws`; may be slow/blocked in China. Mirror to ECR if pulls fail. |
 | Route 53 | Not offered in China — manage DNS at your registrar / China DNS provider; point your ICP domain at the ALB. |
@@ -64,10 +66,10 @@ cannot be assumed from outside China — confirm them in the cn-northwest-1 cons
   - [ ] `keycloak.image` = customer's ECR image URI (quay.io is unreliable in China). **VERIFY** the image is pushed.
   - [ ] `alb.allowedCidrs` (tighten from `0.0.0.0/0` if internal) and, for HTTPS, `alb.certArn` + `alb.domainName` (ICP-filed).
   - [ ] `keycloak.publicUrl` = empty for first deploy (pinned on the second pass — see below).
-- [ ] **VERIFY** ALB Controller image tag (`v2.8.2`) exists in the cn ECR repo above.
-- [ ] **VERIFY** EKS version `1.32` is offered: `aws eks describe-cluster-versions --region cn-northwest-1`
-      (keep `@aws-cdk/lambda-layer-kubectl-v32` in `package.json` matched to it).
-- [ ] **VERIFY** Aurora PostgreSQL `16.4` + `r6g.large` and node `m6g.large` are available in cn-northwest-1.
+- [ ] **VERIFY** ALB Controller image tag (`v2.17.1`) exists in the cn ECR repo above.
+- [ ] EKS version `1.35` (verified via china profile that cn-northwest-1 offers 1.30–**1.36**;
+      pinned to 1.35 to match `@aws-cdk/lambda-layer-kubectl-v35`).
+- [ ] Aurora PostgreSQL `16.4` + `r7g.large` and node `m7g.large` — verified available in cn-northwest-1 (all 3 AZs) via the china profile.
 - [ ] **VERIFY** EKS, Aurora, NAT/EIP quota headroom in the account.
 
 ## Deploy
