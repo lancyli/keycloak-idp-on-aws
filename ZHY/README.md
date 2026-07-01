@@ -49,7 +49,14 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
   docker pull --platform linux/arm64 public.ecr.aws/aws-cli/aws-cli:latest
   docker tag public.ecr.aws/aws-cli/aws-cli:latest $ECR/aws-cli:latest && docker push $ECR/aws-cli:latest
   ```
-  > The LB Controller chart ships with the repo (`charts/aws-load-balancer-controller/`); its **image** comes from the China EKS ECR (`961992271922`) automatically — no mirroring needed.
+  > The LB Controller **image** comes from the China EKS ECR (`961992271922`) automatically — no mirroring needed.
+- **Download the LB Controller chart locally (required in China; `charts/` is git-ignored)** — the chart is not committed; before deploy, pull + extract it into `charts/` on a host that can reach `aws.github.io` (CDK packages it as an S3 asset, reachable in China):
+  ```bash
+  mkdir -p charts
+  helm pull aws-load-balancer-controller --repo https://aws.github.io/eks-charts --version 1.17.1 -d charts/
+  tar xzf charts/aws-load-balancer-controller-1.17.1.tgz -C charts/
+  # produces charts/aws-load-balancer-controller/ (the eks-stack.ts Asset points here)
+  ```
 - Edit `lib/config.ts`:
   - `eks.clusterAdminPrincipalArns` — **required**: your `arn:aws-cn:iam::...` admin
     principal(s) (User or Role ARN). If empty, no human can `kubectl`/manage the cluster.
@@ -78,7 +85,7 @@ cannot be assumed from outside China — confirm them in the cn-northwest-1 cons
   - [ ] Keycloak `keycloak:26.1.4` and aws-cli init `aws-cli:latest` images both pushed (arm64) to this account's cn-northwest-1 ECR.
   - [ ] `alb.allowedCidrs` = your egress CIDR(s) (default `[]` = locked, nobody can reach it); for HTTPS set `alb.certArn` + `alb.domainName` (ICP-filed).
   - [ ] `keycloak.publicUrl` = empty for first deploy (pinned on the second pass — see below).
-- [ ] **VERIFY** ALB Controller image tag (`v2.17.1`) exists in the China EKS ECR (`961992271922`) (the chart ships with the repo).
+- [ ] LB Controller chart downloaded/extracted to `charts/aws-load-balancer-controller/` (see Prerequisites; `charts/` is git-ignored); its image tag `v2.17.1` exists in the China EKS ECR (`961992271922`).
 - [ ] EKS version `1.35` (verified via china profile that cn-northwest-1 offers 1.30–**1.36**;
       pinned to 1.35 to match `@aws-cdk/lambda-layer-kubectl-v35`).
 - [ ] Aurora PostgreSQL `16.4` + `r7g.large` and node `m7g.large` — verified available in cn-northwest-1 (all 3 AZs) via the china profile.

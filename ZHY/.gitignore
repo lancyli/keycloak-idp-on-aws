@@ -14,3 +14,6 @@ cdk.context.json
 # Local secrets / credential dumps — NEVER commit
 *.local.txt
 keycloak-admin.*.txt
+
+# Third-party Helm chart pulled at deploy time (see 部署手册 / README)
+charts/
