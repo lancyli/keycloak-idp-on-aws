@@ -1,4 +1,4 @@
-import { Tags, RemovalPolicy } from 'aws-cdk-lib';
+import { Tags, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import * as eks from 'aws-cdk-lib/aws-eks';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct, IDependable } from 'constructs';
@@ -66,44 +66,35 @@ export class KeycloakWorkload extends Construct {
     dbSecret.grantRead(sa.role);
     adminSecret.grantRead(sa.role);
 
-    // ---- SecretProviderClass (sync SM secrets -> k8s Secret) ---------------
-    const objectsYaml = [
-      `- objectName: "${dbSecret.secretArn}"`,
-      `  objectType: "secretsmanager"`,
-      `  jmesPath:`,
-      `    - path: "username"`,
-      `      objectAlias: "db_username"`,
-      `    - path: "password"`,
-      `      objectAlias: "db_password"`,
-      `- objectName: "${adminSecret.secretArn}"`,
-      `  objectType: "secretsmanager"`,
-      `  jmesPath:`,
-      `    - path: "password"`,
-      `      objectAlias: "admin_password"`,
-    ].join('\n');
-
-    const secretProviderClass = cluster.addManifest('KeycloakSpc', {
-      apiVersion: 'secrets-store.csi.x-k8s.io/v1',
-      kind: 'SecretProviderClass',
-      metadata: { name: 'keycloak-spc', namespace: ns },
-      spec: {
-        provider: 'aws',
-        parameters: { objects: objectsYaml },
-        secretObjects: [
-          {
-            secretName: 'keycloak-secrets',
-            type: 'Opaque',
-            data: [
-              { objectName: 'db_username', key: 'KC_DB_USERNAME' },
-              { objectName: 'db_password', key: 'KC_DB_PASSWORD' },
-              { objectName: 'admin_password', key: 'KC_BOOTSTRAP_ADMIN_PASSWORD' },
-            ],
-          },
-        ],
-      },
-    });
-    secretProviderClass.node.addDependency(namespace);
-    for (const d of crdDeps) secretProviderClass.node.addDependency(d);
+    // ---- Credentials via IRSA init container (CHINA) -----------------------
+    // The Secrets Store CSI Driver is blocked in China (GitHub-hosted Helm charts),
+    // and CloudFormation dynamic references are NOT resolved inside eks addManifest
+    // custom resources. So an init container (aws-cli, mirrored to the China ECR)
+    // uses the pod's IRSA role to fetch the DB/admin credentials from Secrets Manager
+    // at startup and writes them to a shared in-memory volume. The Keycloak container
+    // then exports them before launching. Credentials never touch etcd or the template.
+    const auroraSecretName = `${config.project}/aurora/credentials`;
+    const adminSecretName = `${config.project}/keycloak/admin`;
+    // ECR registry for this account/region, derived from CDK tokens so no account id
+    // is hard-coded in source (resolves to the real registry at deploy time).
+    const ecrRegistry = `${Stack.of(this).account}.dkr.ecr.${config.region}.amazonaws.com.cn`;
+    const credsInitImage = `${ecrRegistry}/aws-cli:latest`;
+    const fetchCredsScript = [
+      'set -e',
+      // IRSA token exchange must use the regional STS endpoint in China (aws-cn).
+      `export AWS_REGION=${config.region} AWS_DEFAULT_REGION=${config.region} AWS_STS_REGIONAL_ENDPOINTS=regional`,
+      `DB=$(aws secretsmanager get-secret-value --secret-id ${auroraSecretName} --query SecretString --output text)`,
+      `AD=$(aws secretsmanager get-secret-value --secret-id ${adminSecretName} --query SecretString --output text)`,
+      `printf '%s' "$DB" | sed -n 's/.*"username":"\\([^"]*\\)".*/\\1/p' > /creds/db_user`,
+      `printf '%s' "$DB" | sed -n 's/.*"password":"\\([^"]*\\)".*/\\1/p' > /creds/db_pass`,
+      `printf '%s' "$AD" | sed -n 's/.*"password":"\\([^"]*\\)".*/\\1/p' > /creds/admin_pass`,
+    ].join('; ');
+    const keycloakStartScript = [
+      'export KC_DB_USERNAME="$(cat /creds/db_user)"',
+      'export KC_DB_PASSWORD="$(cat /creds/db_pass)"',
+      'export KC_BOOTSTRAP_ADMIN_PASSWORD="$(cat /creds/admin_pass)"',
+      'exec /opt/keycloak/bin/kc.sh start',
+    ].join('; ');
 
     // ---- Environment (hostname handling) -----------------------------------
     const env: Array<{ name: string; value?: string; valueFrom?: object }> = [
@@ -112,21 +103,7 @@ export class KeycloakWorkload extends Construct {
         name: 'KC_DB_URL',
         value: `jdbc:postgresql://${dbWriterEndpoint}:5432/${config.aurora.databaseName}`,
       },
-      {
-        name: 'KC_DB_USERNAME',
-        valueFrom: { secretKeyRef: { name: 'keycloak-secrets', key: 'KC_DB_USERNAME' } },
-      },
-      {
-        name: 'KC_DB_PASSWORD',
-        valueFrom: { secretKeyRef: { name: 'keycloak-secrets', key: 'KC_DB_PASSWORD' } },
-      },
       { name: 'KC_BOOTSTRAP_ADMIN_USERNAME', value: 'admin' },
-      {
-        name: 'KC_BOOTSTRAP_ADMIN_PASSWORD',
-        valueFrom: {
-          secretKeyRef: { name: 'keycloak-secrets', key: 'KC_BOOTSTRAP_ADMIN_PASSWORD' },
-        },
-      },
       { name: 'KC_HTTP_ENABLED', value: 'true' },
       { name: 'KC_PROXY_HEADERS', value: 'xforwarded' },
       { name: 'KC_HEALTH_ENABLED', value: 'true' },
@@ -157,6 +134,15 @@ export class KeycloakWorkload extends Construct {
           spec: {
             serviceAccountName: 'keycloak',
             nodeSelector: { 'kubernetes.io/arch': 'arm64' },
+            initContainers: [
+              {
+                name: 'fetch-credentials',
+                image: credsInitImage,
+                command: ['/bin/sh', '-c'],
+                args: [fetchCredsScript],
+                volumeMounts: [{ name: 'creds', mountPath: '/creds' }],
+              },
+            ],
             affinity: {
               podAntiAffinity: {
                 preferredDuringSchedulingIgnoredDuringExecution: [
@@ -180,17 +166,16 @@ export class KeycloakWorkload extends Construct {
             containers: [
               {
                 name: 'keycloak',
-                image: config.keycloak.image,
-                args: ['start'],
+                image: `${ecrRegistry}/${config.keycloak.image}`,
+                command: ['/bin/sh', '-c'],
+                args: [keycloakStartScript],
                 ports: [
                   { name: 'http', containerPort: 8080 },
                   { name: 'management', containerPort: 9000 },
                   { name: 'jgroups', containerPort: 7800 },
                 ],
                 env,
-                volumeMounts: [
-                  { name: 'secrets-store', mountPath: '/mnt/secrets-store', readOnly: true },
-                ],
+                volumeMounts: [{ name: 'creds', mountPath: '/creds', readOnly: true }],
                 resources: {
                   requests: {
                     cpu: config.keycloak.cpuRequest,
@@ -216,22 +201,12 @@ export class KeycloakWorkload extends Construct {
                 },
               },
             ],
-            volumes: [
-              {
-                name: 'secrets-store',
-                csi: {
-                  driver: 'secrets-store.csi.k8s.io',
-                  readOnly: true,
-                  volumeAttributes: { secretProviderClass: 'keycloak-spc' },
-                },
-              },
-            ],
+            volumes: [{ name: 'creds', emptyDir: { medium: 'Memory' } }],
           },
         },
       },
     });
     deployment.node.addDependency(sa);
-    deployment.node.addDependency(secretProviderClass);
     for (const d of crdDeps) deployment.node.addDependency(d);
 
     // ---- Service -----------------------------------------------------------

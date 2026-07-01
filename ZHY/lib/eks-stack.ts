@@ -4,6 +4,9 @@ import * as eks from 'aws-cdk-lib/aws-eks';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as s3assets from 'aws-cdk-lib/aws-s3-assets';
+import * as fs from 'fs';
+import * as path from 'path';
 import { KubectlV35Layer } from '@aws-cdk/lambda-layer-kubectl-v35';
 import { Construct } from 'constructs';
 import { KeycloakHaConfig } from './config';
@@ -55,11 +58,10 @@ export class EksStack extends Stack {
       vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
       defaultCapacity: 0,
       endpointAccess,
-      albController: {
-        version: eks.AlbControllerVersion.V2_17_1,
-        // CHINA: pull the controller image from the China regional ECR.
-        repository: config.eks.albControllerRepository,
-      },
+      // NOTE (China): the built-in `albController` option is intentionally NOT used
+      // here because it fetches its Helm chart from https://aws.github.io/eks-charts
+      // (GitHub Pages), which is blocked in China. The AWS Load Balancer Controller
+      // is installed manually further below from a local chart asset (via S3).
       clusterLogging: [
         eks.ClusterLoggingTypes.API,
         eks.ClusterLoggingTypes.AUDIT,
@@ -132,30 +134,52 @@ export class EksStack extends Stack {
     });
     metricsServerAddon.node.addDependency(nodeGroup);
 
-    // ---- Secrets Store CSI Driver + AWS provider ---------------------------
-    // NOTE (China): these helm images pull from registry.k8s.io / public.ecr.aws,
-    // which can be slow/blocked in China. Mirror them to ECR if pulls fail.
-    const csiDriver = this.cluster.addHelmChart('SecretsStoreCsiDriver', {
-      chart: 'secrets-store-csi-driver',
-      repository: 'https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts',
-      release: 'csi-secrets-store',
+    // ---- AWS Load Balancer Controller (CHINA: manual, no GitHub) -----------
+    // Installs the same chart the built-in albController would, but from a LOCAL
+    // asset (delivered via the CDK bootstrap S3 bucket, reachable in China) instead
+    // of https://aws.github.io/eks-charts (blocked in China). The controller image
+    // is pulled from the China regional EKS ECR. IRSA service account + IAM policy
+    // replicate what the albController construct does, with the IAM policy resources
+    // rewritten to the aws-cn partition.
+    const albSa = this.cluster.addServiceAccount('AlbSa', {
+      name: 'aws-load-balancer-controller',
       namespace: 'kube-system',
-      version: '1.4.6',
+    });
+    const albPolicyJson = fs
+      .readFileSync(path.join(__dirname, 'alb-iam-policy.json'), 'utf8')
+      .replace(/arn:aws:/g, 'arn:aws-cn:');
+    for (const stmt of JSON.parse(albPolicyJson).Statement) {
+      albSa.addToPrincipalPolicy(iam.PolicyStatement.fromJson(stmt));
+    }
+    const albChartAsset = new s3assets.Asset(this, 'AlbChartAsset', {
+      // Point at the EXTRACTED chart directory (not the .tgz): CDK zips the directory
+      // and the kubectl helm handler extracts it. Passing a .tgz fails with
+      // "File is not a zip file".
+      path: path.join(__dirname, '..', 'charts', 'aws-load-balancer-controller'),
+    });
+    const albChart = this.cluster.addHelmChart('AlbController', {
+      chartAsset: albChartAsset,
+      release: 'aws-load-balancer-controller',
+      namespace: 'kube-system',
+      wait: true,
       values: {
-        syncSecret: { enabled: true },
-        enableSecretRotation: true,
-        rotationPollInterval: '2m',
+        clusterName: this.cluster.clusterName,
+        region: this.region,
+        vpcId: vpc.vpcId,
+        serviceAccount: { create: false, name: 'aws-load-balancer-controller' },
+        image: {
+          repository: config.eks.albControllerRepository,
+          tag: 'v2.17.1',
+        },
       },
     });
+    albChart.node.addDependency(albSa);
 
-    const awsProvider = this.cluster.addHelmChart('SecretsStoreAwsProvider', {
-      chart: 'secrets-store-csi-driver-provider-aws',
-      repository: 'https://aws.github.io/secrets-store-csi-driver-provider-aws',
-      release: 'secrets-provider-aws',
-      namespace: 'kube-system',
-      version: '0.3.10',
-    });
-    awsProvider.node.addDependency(csiDriver);
+    // NOTE (China): Secrets Store CSI Driver is intentionally NOT used here. Its Helm
+    // charts come from GitHub (kubernetes-sigs.github.io / aws.github.io), which is
+    // blocked in China. Keycloak's DB/admin credentials are instead injected via a
+    // native Kubernetes Secret populated with CloudFormation dynamic references
+    // (see keycloak-workload.ts) - no GitHub-hosted charts or images required.
 
     // ---- ALB security group (public entry, restricted to allowedCidrs) -----
     this.albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSg', {
@@ -274,9 +298,7 @@ export class EksStack extends Stack {
       dbWriterEndpoint,
       targetGroupArn: this.targetGroup.targetGroupArn,
       publicUrl,
-      crdDependencies: [csiDriver, awsProvider, this.cluster.albController].filter(
-        (d): d is NonNullable<typeof d> => d !== undefined,
-      ),
+      crdDependencies: [albChart],
     });
 
     new CfnOutput(this, 'AlbDnsName', {

@@ -122,7 +122,7 @@ export const config: KeycloakHaConfig = {
     nodeMaxSize: 6,
     nodeDiskSizeGiB: 30,
     publicEndpointAllowedCidrs: [], // recommend restricting to your egress CIDRs
-    clusterAdminPrincipalArns: [], // set to your IAM user/role ARN (arn:aws-cn:iam::...)
+    clusterAdminPrincipalArns: [], // set to your IAM user/role ARN (arn:aws-cn:iam::...) before deploy
     // VERIFY the account id for cn-northwest-1 against the official registry doc.
     albControllerRepository:
       '961992271922.dkr.ecr.cn-northwest-1.amazonaws.com.cn/amazon/aws-load-balancer-controller',
@@ -138,9 +138,11 @@ export const config: KeycloakHaConfig = {
   },
 
   keycloak: {
-    // CHINA: push this image to ECR cn-northwest-1 and reference it here (quay.io is unreliable).
-    // e.g. "<acct>.dkr.ecr.cn-northwest-1.amazonaws.com.cn/keycloak:26.1.4"
-    image: 'quay.io/keycloak/keycloak:26.1.4',
+    // CHINA: mirrored from quay.io to this account's cn-northwest-1 ECR (quay.io is
+    // unreliable/blocked in China). Stored as repo:tag only; the full ECR registry
+    // (<account>.dkr.ecr.<region>.amazonaws.com.cn) is prepended at deploy time so no
+    // account id is hard-coded in source.
+    image: 'keycloak:26.1.4',
     namespace: 'keycloak',
     publicUrl: '', // set to https://<icp-domain> or http://<alb-dns> after first deploy
     replicas: 2,
@@ -154,7 +156,7 @@ export const config: KeycloakHaConfig = {
   },
 
   alb: {
-    allowedCidrs: ['0.0.0.0/0'], // public IdP; restrict to corporate CIDRs if internal-only
+    allowedCidrs: [], // LOCKED DOWN on deploy (no ingress). Add the VPN prefix list rule to the ALB SG manually after deploy.
     // certArn: 'arn:aws-cn:acm:cn-northwest-1:<acct>:certificate/...',
     // domainName: 'idp.example.cn',
   },
