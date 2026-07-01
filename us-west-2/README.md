@@ -78,6 +78,12 @@ Run through this before `cdk deploy` in a fresh customer account:
 
 ## Deploy
 
+> **One-command script**: the whole deploy (including the two-pass KC_HOSTNAME pinning) can be
+> run with `deploy.sh` — `AWS_PROFILE=<profile> ./deploy.sh all` (account auto-detected: runs
+> `deploy --all`, then reads the CloudFront URL, pins `publicUrl`, and redeploys the eks stack).
+> Sub-commands: `deploy` (first pass only), `pin-hostname` (second pass only), `password`
+> (print the admin password). The manual equivalent below is for understanding / troubleshooting.
+
 ```bash
 npm install
 npm run build          # tsc type-check
