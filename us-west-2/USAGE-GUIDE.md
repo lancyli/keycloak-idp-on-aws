@@ -20,7 +20,7 @@ Throughout, replace these placeholders:
 | `<SAML_PROVIDER>` | IAM SAML provider name | `keycloak` |
 | `<FED_ROLE>` | IAM role users federate into | `keycloak-quicksight-federation` |
 
-> **AWS China (ZHY):** every `signin.aws.amazon.com` becomes `signin.amazonaws.cn`,
+> **AWS ZHY (ZHY):** every `signin.aws.amazon.com` becomes `signin.amazonaws.cn`,
 > every `arn:aws:` becomes `arn:aws-cn:`, and the SAML audience changes accordingly.
 > See the "ZHY adaptation notes" in `README.md`.
 
@@ -116,7 +116,7 @@ This makes Keycloak a SAML IdP for the AWS sign-in endpoint.
 - Next.
 - **Valid redirect URIs / Assertion Consumer Service POST Binding URL**:
   `https://signin.aws.amazon.com/saml`
-  *(China: `https://signin.amazonaws.cn/saml`)*
+  *(ZHY: `https://signin.amazonaws.cn/saml`)*
 - Save.
 
 **Client → Settings**:

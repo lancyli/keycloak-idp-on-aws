@@ -74,7 +74,7 @@ Run through this before `cdk deploy` in a fresh customer account:
   - [ ] (optional) Aurora / EKS node sizes / Keycloak replicas tuned for the customer's load.
 - [ ] **Region & quotas**: target is us-west-2; confirm EKS, Aurora, NAT/EIP quota headroom.
 - [ ] **Image reachability**: `quay.io/keycloak/keycloak` pullable via the account's NAT egress
-      (fine in us-west-2; for AWS China see the ZHY notes below).
+      (fine in us-west-2; for AWS ZHY see the ZHY notes below).
 
 ## Deploy
 
@@ -147,18 +147,18 @@ The infra deploys Keycloak itself; realm/client/federation config is a one-time 
 
 ## ZHY (cn-northwest-1) adaptation notes
 
-This project targets us-west-2. For AWS China (ZHY), the following must change —
+This project targets us-west-2. For AWS ZHY (ZHY), the following must change —
 do **not** deploy as-is:
 
 - **Partition**: all ARNs become `arn:aws-cn:...` — use `${AWS::Partition}` / CDK
   partition tokens (CDK handles most automatically when `region` is a cn region).
 - **SAML endpoints**: AWS sign-in is `signin.amazonaws.cn/saml` (not `.com`); update the
-  SAML client audience/ACS and QuickSight RelayState to the China console URL.
-- **Route 53**: not offered in China — manage DNS at your registrar / a China DNS provider.
+  SAML client audience/ACS and QuickSight RelayState to the ZHY console URL.
+- **Route 53**: not offered in ZHY — manage DNS at your registrar / a ZHY DNS provider.
 - **CloudFront**: requires **ICP filing (备案)** for any served domain; the
   "free HTTPS via default domain" trick does not apply. For testing, use **ALB + ACM**
   on an ICP-filed subdomain; add CloudFront for production.
-- **Container image**: `quay.io` pulls are slow/unreliable in China — push the Keycloak
+- **Container image**: `quay.io` pulls are slow/unreliable in ZHY — push the Keycloak
   image to **ECR in cn-northwest-1** and reference it in `config.keycloak.image`.
 - **QuickSight / Amazon Quick**: verify regional availability and exact SAML endpoints in
   the ZHY console before building the federation.

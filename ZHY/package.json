@@ -1,7 +1,7 @@
 {
   "name": "keycloak-ha-cn-cdk",
   "version": "1.0.0",
-  "description": "HA Keycloak IdP on AWS China (cn-northwest-1 / ZHY): ALB + EKS (Graviton) + Aurora PostgreSQL (Graviton). No CloudFront.",
+  "description": "HA Keycloak IdP on AWS ZHY (cn-northwest-1 / ZHY): ALB + EKS (Graviton) + Aurora PostgreSQL (Graviton). No CloudFront.",
   "bin": {
     "keycloak-ha-cn": "bin/app.js"
   },
