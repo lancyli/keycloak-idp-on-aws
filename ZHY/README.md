@@ -93,6 +93,12 @@ cannot be assumed from outside China — confirm them in the cn-northwest-1 cons
 
 ## Deploy
 
+> **One-command script**: the prep (image mirroring, chart pull) and the deploy can all be run
+> with `deploy-china.sh` — `AWS_PROFILE=<your-china-profile> ./deploy-china.sh all` (the account
+> id is auto-detected). Sub-commands: `prep` (mirror + chart only), `deploy` (build + deploy only),
+> `clean-secret` (remove the retained admin secret before a retry). The manual equivalent below is
+> for understanding / troubleshooting.
+
 **China-critical**: the `cdk` CLI resolves the account and calls STS. By default it uses the
 **global STS endpoint**, which rejects `aws-cn` tokens ("Unable to resolve AWS account" /
 "no credentials"). You must use the `AWS_PROFILE` env var + the **regional STS endpoint** +
