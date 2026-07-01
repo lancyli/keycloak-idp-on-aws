@@ -1,9 +1,9 @@
-# Keycloak HA on AWS China (ZHY / cn-northwest-1)
+# Keycloak HA on AWS ZHY (cn-northwest-1)
 
 Independent CDK project. Architecture: **ALB (public entry) → EKS (Graviton) → Aurora
-PostgreSQL (Graviton)**. **No CloudFront** (China CloudFront requires ICP filing). All ARM.
+PostgreSQL (Graviton)**. **No CloudFront** (ZHY CloudFront requires ICP filing). All ARM.
 
-This is the AWS China (`aws-cn`) adaptation of the us-west-2 deployment in the parent
+This is the AWS ZHY (`aws-cn`) adaptation of the us-west-2 deployment in the parent
 folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` folder.
 
 ## Architecture
@@ -18,26 +18,26 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
  Aurora PostgreSQL                 Graviton, Writer + Reader, Multi-AZ, encrypted
 ```
 
-## What differs from the us-west-2 version (China specifics)
+## What differs from the us-west-2 version (ZHY specifics)
 
 | Area | Adaptation |
 |------|-----------|
 | Partition | `arn:aws-cn:*` applied automatically by CDK when `region = cn-northwest-1`. |
 | Public entry | **ALB** (not CloudFront). HTTPS needs an ACM cert (cn-northwest-1) on an **ICP-filed** domain (`alb.certArn` + `alb.domainName`); otherwise HTTP only (testing). |
-| AWS LB Controller | The built-in `albController` is **not** used — its Helm chart is fetched from `aws.github.io/eks-charts` (blocked in China). Instead it is installed from a **local chart asset** (`charts/aws-load-balancer-controller/`, delivered via CDK's S3, reachable in China) + a manual IRSA ServiceAccount + IAM policy (`lib/alb-iam-policy.json`, resources rewritten to the `aws-cn` partition) + controller image from the China EKS ECR (`eks.albControllerRepository`, default `961992271922`). |
+| AWS LB Controller | The built-in `albController` is **not** used — its Helm chart is fetched from `aws.github.io/eks-charts` (unreachable from some networks). Instead it is installed from a **local chart asset** (`charts/aws-load-balancer-controller/`, delivered via CDK's S3, reachable from ZHY) + a manual IRSA ServiceAccount + IAM policy (`lib/alb-iam-policy.json`, resources rewritten to the `aws-cn` partition) + controller image from the ZHY EKS ECR (`eks.albControllerRepository`, default `961992271922`). |
 | Graviton classes | `m7g.large` (nodes) and `r7g.large` (Aurora) — Graviton3, verified available in cn-northwest-1 (3 AZs) via the china profile; matches us-west-2. |
 | EKS version | `1.35` (matches us-west-2). cn-northwest-1 already supports up to 1.36, but pinned to `1.35` to match the available `@aws-cdk/lambda-layer-kubectl-v35` (no v36 package yet). |
-| EKS managed add-ons | `vpc-cni`, `kube-proxy`, `coredns`, `metrics-server` are installed as **EKS managed add-ons** (`resolveConflicts=OVERWRITE`) — visible in the console Add-ons tab and one-click upgradable; `metrics-server` powers CPU-based HPA. China managed add-on images are pulled from the regional ECR (`961992271922`) automatically. |
+| EKS managed add-ons | `vpc-cni`, `kube-proxy`, `coredns`, `metrics-server` are installed as **EKS managed add-ons** (`resolveConflicts=OVERWRITE`) — visible in the console Add-ons tab and one-click upgradable; `metrics-server` powers CPU-based HPA. ZHY managed add-on images are pulled from the regional ECR (`961992271922`) automatically. |
 | ALB Controller version | `v2.17.1` (chart `1.17.1`, matches us-west-2). |
-| Secret injection | Secrets Store CSI Driver is **not** used (its Helm charts are GitHub-hosted, blocked in China; and CFN dynamic references are not resolved inside eks manifests). DB/admin credentials are fetched at pod startup by an **IRSA init container** (aws-cli image) via `aws secretsmanager get-secret-value` (**using the regional STS endpoint**), written to an in-memory (tmpfs) volume, and `export`ed by the Keycloak container before launch. See "Database credentials" below. |
-| Container image mirroring | Keycloak (`quay.io`) and the aws-cli init image (`public.ecr.aws`) are unreliable/blocked in China — **mirror them to this account's cn-northwest-1 ECR**. `config.keycloak.image` holds only `repo:tag` (e.g. `keycloak:26.1.4`); the full ECR prefix (`<account>.dkr.ecr.<region>.amazonaws.com.cn`) is prepended at deploy time (no account id in source). |
-| Route 53 | Not offered in China — manage DNS at your registrar / China DNS provider; point your ICP domain at the ALB. |
+| Secret injection | Secrets Store CSI Driver is **not** used (its Helm charts are GitHub-hosted, unreachable from some networks; and CFN dynamic references are not resolved inside eks manifests). DB/admin credentials are fetched at pod startup by an **IRSA init container** (aws-cli image) via `aws secretsmanager get-secret-value` (**using the regional STS endpoint**), written to an in-memory (tmpfs) volume, and `export`ed by the Keycloak container before launch. See "Database credentials" below. |
+| Container image mirroring | Keycloak (`quay.io`) and the aws-cli init image (`public.ecr.aws`) are unreliable/unreachable from some networks — **mirror them to this account's cn-northwest-1 ECR**. `config.keycloak.image` holds only `repo:tag` (e.g. `keycloak:26.1.4`); the full ECR prefix (`<account>.dkr.ecr.<region>.amazonaws.com.cn`) is prepended at deploy time (no account id in source). |
+| Route 53 | Not offered in ZHY — manage DNS at your registrar / ZHY DNS provider; point your ICP domain at the ALB. |
 | SAML federation | AWS sign-in is `https://signin.amazonaws.cn/saml` (configured later inside Keycloak). |
 
 ## Prerequisites
 
-- AWS China account credentials for cn-northwest-1; CDK bootstrapped (see env vars under Deploy).
-- **Image mirroring (required in China)** — mirror two images to **this account's cn-northwest-1 ECR** from a host that can reach quay.io / public.ecr.aws:
+- AWS ZHY account credentials for cn-northwest-1; CDK bootstrapped (see env vars under Deploy).
+- **Image mirroring (required in ZHY)** — mirror two images to **this account's cn-northwest-1 ECR** from a host that can reach quay.io / public.ecr.aws:
   ```bash
   R=cn-northwest-1; ACCT=<CN_ACCOUNT_ID>
   ECR="$ACCT.dkr.ecr.cn-northwest-1.amazonaws.com.cn"
@@ -49,8 +49,8 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
   docker pull --platform linux/arm64 public.ecr.aws/aws-cli/aws-cli:latest
   docker tag public.ecr.aws/aws-cli/aws-cli:latest $ECR/aws-cli:latest && docker push $ECR/aws-cli:latest
   ```
-  > The LB Controller **image** comes from the China EKS ECR (`961992271922`) automatically — no mirroring needed.
-- **Download the LB Controller chart locally (required in China; `charts/` is git-ignored)** — the chart is not committed; before deploy, pull + extract it into `charts/` on a host that can reach `aws.github.io` (CDK packages it as an S3 asset, reachable in China):
+  > The LB Controller **image** comes from the ZHY EKS ECR (`961992271922`) automatically — no mirroring needed.
+- **Download the LB Controller chart locally (required in ZHY; `charts/` is git-ignored)** — the chart is not committed; before deploy, pull + extract it into `charts/` on a host that can reach `aws.github.io` (CDK packages it as an S3 asset, reachable from ZHY):
   ```bash
   mkdir -p charts
   helm pull aws-load-balancer-controller --repo https://aws.github.io/eks-charts --version 1.17.1 -d charts/
@@ -61,19 +61,19 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
   - `eks.clusterAdminPrincipalArns` — **required**: your `arn:aws-cn:iam::...` admin
     principal(s) (User or Role ARN). If empty, no human can `kubectl`/manage the cluster.
   - `eks.publicEndpointAllowedCidrs` — restrict the EKS public API endpoint to your egress CIDRs.
-  - `eks.albControllerRepository` — China EKS ECR (ZHY default `961992271922`; Beijing `918309763551`).
+  - `eks.albControllerRepository` — ZHY EKS ECR (ZHY default `961992271922`; Beijing `918309763551`).
   - `keycloak.image` — **`repo:tag` only** (default `keycloak:26.1.4`); the ECR prefix is prepended
     from the account/region at deploy — do **not** hard-code the full account URI.
   - `alb.allowedCidrs` — source CIDR(s) allowed to reach the ALB (default `[]` = locked, nobody in).
   - `alb.certArn` / `alb.domainName` — for HTTPS (needs an ICP-filed domain + cn-northwest-1 ACM cert).
 
-## Customer pre-deployment checklist (AWS China)
+## Customer pre-deployment checklist (AWS ZHY)
 
-Run through this before `cdk deploy` in a fresh AWS China account. Items marked **VERIFY**
-cannot be assumed from outside China — confirm them in the cn-northwest-1 console/CLI first.
+Run through this before `cdk deploy` in a fresh AWS ZHY account. Items marked **VERIFY**
+cannot be assumed from outside ZHY — confirm them in the cn-northwest-1 console/CLI first.
 
 - [ ] **Tooling**: Node.js 18+, AWS CLI v2, `kubectl`, Docker running (CDK bundles assets in Docker).
-- [ ] **Credentials**: point at the customer's **AWS China** account (`aws sts get-caller-identity`
+- [ ] **Credentials**: point at the customer's **AWS ZHY** account (`aws sts get-caller-identity`
       should return an `arn:aws-cn:...` identity).
 - [ ] **Bootstrap**: `npx cdk bootstrap aws://<CN_ACCOUNT_ID>/cn-northwest-1`.
 - [ ] **No stale context**: `cdk.context.json` and `cdk.out/` are absent (gitignored; regenerate on synth).
@@ -85,7 +85,7 @@ cannot be assumed from outside China — confirm them in the cn-northwest-1 cons
   - [ ] Keycloak `keycloak:26.1.4` and aws-cli init `aws-cli:latest` images both pushed (arm64) to this account's cn-northwest-1 ECR.
   - [ ] `alb.allowedCidrs` = your egress CIDR(s) (default `[]` = locked, nobody can reach it); for HTTPS set `alb.certArn` + `alb.domainName` (ICP-filed).
   - [ ] `keycloak.publicUrl` = empty for first deploy (pinned on the second pass — see below).
-- [ ] LB Controller chart downloaded/extracted to `charts/aws-load-balancer-controller/` (see Prerequisites; `charts/` is git-ignored); its image tag `v2.17.1` exists in the China EKS ECR (`961992271922`).
+- [ ] LB Controller chart downloaded/extracted to `charts/aws-load-balancer-controller/` (see Prerequisites; `charts/` is git-ignored); its image tag `v2.17.1` exists in the ZHY EKS ECR (`961992271922`).
 - [ ] EKS version `1.35` (verified via china profile that cn-northwest-1 offers 1.30–**1.36**;
       pinned to 1.35 to match `@aws-cdk/lambda-layer-kubectl-v35`).
 - [ ] Aurora PostgreSQL `16.4` + `r7g.large` and node `m7g.large` — verified available in cn-northwest-1 (all 3 AZs) via the china profile.
@@ -99,7 +99,7 @@ cannot be assumed from outside China — confirm them in the cn-northwest-1 cons
 > `clean-secret` (remove the retained admin secret before a retry). The manual equivalent below is
 > for understanding / troubleshooting.
 
-**China-critical**: the `cdk` CLI resolves the account and calls STS. By default it uses the
+**ZHY-critical**: the `cdk` CLI resolves the account and calls STS. By default it uses the
 **global STS endpoint**, which rejects `aws-cn` tokens ("Unable to resolve AWS account" /
 "no credentials"). You must use the `AWS_PROFILE` env var + the **regional STS endpoint** +
 an explicit account/region:
@@ -154,7 +154,7 @@ kubectl -n keycloak get pods,svc,targetgroupbinding,hpa
 ```
 Admin password: Secrets Manager `keycloak-ha-cn/keycloak/admin`. Then configure the
 `aws-realm`, OIDC/SAML clients, and the SAML provider/role using `signin.amazonaws.cn` —
-see **[`USAGE-GUIDE.md`](./USAGE-GUIDE.md)** for the exact China (`arn:aws-cn`) steps.
+see **[`USAGE-GUIDE.md`](./USAGE-GUIDE.md)** for the exact ZHY (`arn:aws-cn`) steps.
 
 ## Security note
 
@@ -165,4 +165,4 @@ see **[`USAGE-GUIDE.md`](./USAGE-GUIDE.md)** for the exact China (`arn:aws-cn`) 
   IRSA init container — never in etcd, the CFN template, or the git repo.
 - **HTTPS**: production must use HTTPS (ICP domain + cn-northwest-1 ACM cert). `sslRequired=NONE`
   is for testing only — revert to `external` and enable HTTPS before go-live.
-- Consider adding AWS WAF (available in China) to the ALB for production.
+- Consider adding AWS WAF (available in ZHY) to the ALB for production.

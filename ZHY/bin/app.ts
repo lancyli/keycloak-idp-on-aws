@@ -25,7 +25,7 @@ const database = new DatabaseStack(app, `${prefix}-database`, {
 });
 database.addDependency(network);
 
-// 3) EKS + public ALB + Keycloak workload (no CloudFront in the China variant)
+// 3) EKS + public ALB + Keycloak workload (no CloudFront in the ZHY variant)
 const eksStack = new EksStack(app, `${prefix}-eks`, {
   env,
   config,

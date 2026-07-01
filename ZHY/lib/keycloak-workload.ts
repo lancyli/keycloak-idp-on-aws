@@ -66,10 +66,10 @@ export class KeycloakWorkload extends Construct {
     dbSecret.grantRead(sa.role);
     adminSecret.grantRead(sa.role);
 
-    // ---- Credentials via IRSA init container (CHINA) -----------------------
-    // The Secrets Store CSI Driver is blocked in China (GitHub-hosted Helm charts),
+    // ---- Credentials via IRSA init container (ZHY) -----------------------
+    // The Secrets Store CSI Driver is unreachable from some networks (GitHub-hosted Helm charts),
     // and CloudFormation dynamic references are NOT resolved inside eks addManifest
-    // custom resources. So an init container (aws-cli, mirrored to the China ECR)
+    // custom resources. So an init container (aws-cli, mirrored to the ZHY ECR)
     // uses the pod's IRSA role to fetch the DB/admin credentials from Secrets Manager
     // at startup and writes them to a shared in-memory volume. The Keycloak container
     // then exports them before launching. Credentials never touch etcd or the template.
@@ -81,7 +81,7 @@ export class KeycloakWorkload extends Construct {
     const credsInitImage = `${ecrRegistry}/aws-cli:latest`;
     const fetchCredsScript = [
       'set -e',
-      // IRSA token exchange must use the regional STS endpoint in China (aws-cn).
+      // IRSA token exchange must use the regional STS endpoint in ZHY (aws-cn).
       `export AWS_REGION=${config.region} AWS_DEFAULT_REGION=${config.region} AWS_STS_REGIONAL_ENDPOINTS=regional`,
       `DB=$(aws secretsmanager get-secret-value --secret-id ${auroraSecretName} --query SecretString --output text)`,
       `AD=$(aws secretsmanager get-secret-value --secret-id ${adminSecretName} --query SecretString --output text)`,

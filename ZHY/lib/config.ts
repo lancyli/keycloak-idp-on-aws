@@ -1,19 +1,19 @@
 /**
- * Configuration for the AWS China (ZHY, cn-northwest-1) deployment.
+ * Configuration for the AWS ZHY (ZHY, cn-northwest-1) deployment.
  *
  * Architecture: ALB (public entry) -> EKS (Graviton) -> Aurora PostgreSQL (Graviton).
- * NO CloudFront (China CloudFront needs ICP filing). The ALB is the public entry point.
+ * NO CloudFront (ZHY CloudFront needs ICP filing). The ALB is the public entry point.
  *
- * China (aws-cn) specifics handled here / flagged for verification:
+ * ZHY (aws-cn) specifics handled here / flagged for verification:
  *  - Partition arn:aws-cn:* is applied automatically by CDK when region is a cn region.
- *  - ALB Controller image MUST come from the China regional ECR (CDK still defaults the
- *    repo to a us-west-2 account, which is unreachable from China) -> eks.albControllerRepository.
+ *  - ALB Controller image MUST come from the ZHY regional ECR (CDK still defaults the
+ *    repo to a us-west-2 account, which is unreachable from some networks) -> eks.albControllerRepository.
  *  - Graviton classes: m7g/r7g (Graviton3) verified available in cn-northwest-1 (EKS nodes + Aurora PG).
- *  - EKS version: China regions lag global; verify supported versions and keep the
+ *  - EKS version: ZHY regions lag global; verify supported versions and keep the
  *    kubectl layer (package.json @aws-cdk/lambda-layer-kubectl-vXX) matched to it.
  *  - HTTPS without CloudFront: put an ACM cert (cn-northwest-1) on the ALB. The domain
  *    must be ICP-filed (备案). Without a domain, the ALB serves HTTP only (testing).
- *  - Keycloak image: pull from quay.io is slow/unreliable in China; push to ECR
+ *  - Keycloak image: pull from quay.io is slow/unreliable from ZHY; push to ECR
  *    cn-northwest-1 and set keycloak.image to that ECR URI.
  *  - SAML federation endpoint is signin.amazonaws.cn/saml (configured later in Keycloak).
  */
@@ -41,9 +41,9 @@ export interface KeycloakHaConfig {
     readonly publicEndpointAllowedCidrs: string[];
     readonly clusterAdminPrincipalArns: string[];
     /**
-     * REQUIRED for China: full ECR image repo for the AWS Load Balancer Controller,
+     * REQUIRED for ZHY: full ECR image repo for the AWS Load Balancer Controller,
      * e.g. "<acct>.dkr.ecr.cn-northwest-1.amazonaws.com.cn/amazon/aws-load-balancer-controller".
-     * CDK otherwise defaults to a us-west-2 account that is unreachable from China.
+     * CDK otherwise defaults to a us-west-2 account that is unreachable from some networks.
      * VERIFY the account id against the AWS doc "Amazon container image registries".
      */
     readonly albControllerRepository: string;
@@ -77,7 +77,7 @@ export interface KeycloakHaConfig {
     readonly memLimit: string;
   };
 
-  /** ALB is the public entry point (replaces CloudFront in the China variant). */
+  /** ALB is the public entry point (replaces CloudFront in the ZHY variant). */
   readonly alb: {
     /** Source CIDRs allowed to reach the ALB. Default open (public IdP); restrict for internal. */
     readonly allowedCidrs: string[];
@@ -138,8 +138,8 @@ export const config: KeycloakHaConfig = {
   },
 
   keycloak: {
-    // CHINA: mirrored from quay.io to this account's cn-northwest-1 ECR (quay.io is
-    // unreliable/blocked in China). Stored as repo:tag only; the full ECR registry
+    // ZHY: mirrored from quay.io to this account's cn-northwest-1 ECR (quay.io is
+    // unreliable/unreachable from some networks). Stored as repo:tag only; the full ECR registry
     // (<account>.dkr.ecr.<region>.amazonaws.com.cn) is prepended at deploy time so no
     // account id is hard-coded in source.
     image: 'keycloak:26.1.4',

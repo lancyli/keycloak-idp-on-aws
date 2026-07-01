@@ -7,7 +7,7 @@
 | 目录 | 区域 | 公网入口 | 说明 |
 |------|------|----------|------|
 | [`us-west-2/`](./us-west-2/) | 美西（俄勒冈）`us-west-2` | **CloudFront + ALB** | CloudFront 提供默认 HTTPS |
-| [`ZHY/`](./ZHY/) | 中国宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | 需 ICP 备案 |
+| [`ZHY/`](./ZHY/) | ZHY宁夏 `cn-northwest-1` | **ALB**（无 CloudFront） | 需 ICP 备案 |
 
 ## 架构
 
@@ -15,7 +15,7 @@
 
 ```
 us-west-2:  用户 → CloudFront → ALB → EKS(Keycloak, Graviton) → Aurora PostgreSQL(Graviton)
-ZHY (中国): 用户 → ALB → EKS(Keycloak, Graviton) → Aurora PostgreSQL(Graviton)
+ZHY (ZHY): 用户 → ALB → EKS(Keycloak, Graviton) → Aurora PostgreSQL(Graviton)
 ```
 
 共同要点：
@@ -34,7 +34,7 @@ ZHY (中国): 用户 → ALB → EKS(Keycloak, Graviton) → Aurora PostgreSQL(G
 | 部署手册 | [部署手册.md](./us-west-2/部署手册.md) | [README.md](./us-west-2/README.md) |
 | SSO 联合配置 | [使用指南.md](./us-west-2/使用指南.md) | [USAGE-GUIDE.md](./us-west-2/USAGE-GUIDE.md) |
 
-### ZHY（中国宁夏 cn-northwest-1）
+### ZHY（ZHY宁夏 cn-northwest-1）
 | 文档 | 中文 | English |
 |------|------|---------|
 | 部署手册 | [部署手册.md](./ZHY/部署手册.md) | [README.md](./ZHY/README.md) |

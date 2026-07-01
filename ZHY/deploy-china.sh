@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 #
-# deploy-china.sh — Prepare & deploy the Keycloak HA stack to AWS China (cn-northwest-1).
+# deploy-china.sh — Prepare & deploy the Keycloak HA stack to AWS ZHY (cn-northwest-1).
 #
-# Automates the China-specific steps a plain `cdk deploy` cannot do:
+# Automates the ZHY-specific steps a plain `cdk deploy` cannot do:
 #   - mirrors the Keycloak + aws-cli images from quay.io / public.ecr.aws into YOUR ECR
 #   - downloads the AWS Load Balancer Controller Helm chart into charts/ (git-ignored)
 #   - forces the regional STS endpoint + explicit account/region so cdk works in aws-cn
 #
-# The China account id is auto-detected from the AWS profile (never hard-coded), so this
+# The ZHY account id is auto-detected from the AWS profile (never hard-coded), so this
 # script contains no account-specific / sensitive data and is safe to commit.
 #
 # Usage (run from the ZHY/ directory):
 #   AWS_PROFILE=china ./deploy-china.sh all           # prep (mirror + chart) then deploy
 #   AWS_PROFILE=china ./deploy-china.sh prep          # only mirror images + pull chart (needs Internet)
-#   AWS_PROFILE=china ./deploy-china.sh deploy        # only build + bootstrap + deploy (needs China creds)
+#   AWS_PROFILE=china ./deploy-china.sh deploy        # only build + bootstrap + deploy (needs ZHY creds)
 #   AWS_PROFILE=china ./deploy-china.sh clean-secret  # delete the retained admin secret before a retry
 #
 # Optional env overrides:
-#   AWS_PROFILE        AWS CLI profile for the China account   (default: china)
-#   REGION             AWS China region                        (default: cn-northwest-1)
+#   AWS_PROFILE        AWS CLI profile for the ZHY account   (default: china)
+#   REGION             AWS ZHY region                        (default: cn-northwest-1)
 #   KEYCLOAK_TAG       Keycloak image tag to mirror            (default: 26.1.4)
 #   ALB_CHART_VERSION  aws-load-balancer-controller chart ver  (default: 1.17.1)
 #
@@ -30,7 +30,7 @@ KEYCLOAK_TAG="${KEYCLOAK_TAG:-26.1.4}"
 ALB_CHART_VERSION="${ALB_CHART_VERSION:-1.17.1}"
 CMD="${1:-all}"
 
-# China needs the regional STS endpoint for BOTH the CLI and the CDK Node SDK.
+# ZHY needs the regional STS endpoint for BOTH the CLI and the CDK Node SDK.
 export AWS_PROFILE
 export AWS_REGION="$REGION" AWS_DEFAULT_REGION="$REGION"
 export AWS_STS_REGIONAL_ENDPOINTS=regional
@@ -41,12 +41,12 @@ need() { command -v "$1" >/dev/null 2>&1 || die "'$1' not found on PATH"; }
 
 [ -f cdk.json ] || die "run this script from the ZHY/ directory (cdk.json not found here)"
 
-# Resolve the China account id via the regional STS endpoint (no hard-coding).
+# Resolve the ZHY account id via the regional STS endpoint (no hard-coding).
 resolve_account() {
   ACCOUNT="$(aws sts get-caller-identity --profile "$PROFILE" --region "$REGION" \
               --query Account --output text 2>/dev/null || true)"
   case "${ACCOUNT:-}" in
-    ''|None) die "cannot resolve account id — is the '$PROFILE' profile set up for the China account?";;
+    ''|None) die "cannot resolve account id — is the '$PROFILE' profile set up for the ZHY account?";;
   esac
   ECR="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com.cn"
 }

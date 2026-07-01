@@ -1,10 +1,10 @@
-# USAGE-GUIDE — Keycloak realm + SAML/OIDC federation (AWS China / ZHY)
+# USAGE-GUIDE — Keycloak realm + SAML/OIDC federation (AWS ZHY / ZHY)
 
 One-time post-deploy configuration for the HA Keycloak deployed by this CDK project in
 **cn-northwest-1** (Keycloak 26.x). The CDK provisions Keycloak; the realm, clients,
 mappers, and the AWS-side IAM SAML provider are configured here.
 
-**This is the AWS China (`aws-cn`) variant.** Every AWS sign-in endpoint is
+**This is the AWS ZHY (`aws-cn`) variant.** Every AWS sign-in endpoint is
 `signin.amazonaws.cn` (NOT `.com`) and every ARN is `arn:aws-cn:...`. The public entry is
 the **ALB** (no CloudFront).
 
@@ -13,7 +13,7 @@ Replace these placeholders:
 | Placeholder | Meaning | Example |
 |-------------|---------|---------|
 | `<KC_URL>` | ALB-fronted base URL (stack output `AlbDnsName`, or your ICP domain) | `https://idp.example.cn` or `http://k8s-...elb.cn-northwest-1.amazonaws.com.cn` |
-| `<CN_ACCOUNT_ID>` | Customer AWS China account id | `123456789012` |
+| `<CN_ACCOUNT_ID>` | Customer AWS ZHY account id | `123456789012` |
 | `<REALM>` | Realm name | `aws-realm` |
 | `<SAML_PROVIDER>` | IAM SAML provider name | `keycloak` |
 | `<FED_ROLE>` | IAM role users federate into | `keycloak-quicksight-federation` |
@@ -76,7 +76,7 @@ Discovery: <KC_URL>/realms/aws-realm/.well-known/openid-configuration
 **Clients → Create client**
 
 - Type: **SAML**, Client ID: `urn:amazon:webservices` (the SAML audience AWS expects) → Next
-- **ACS / Valid redirect URI**: `https://signin.amazonaws.cn/saml`  ← **China endpoint**
+- **ACS / Valid redirect URI**: `https://signin.amazonaws.cn/saml`  ← **ZHY endpoint**
 - Save.
 
 **Client → Settings**:
@@ -118,9 +118,9 @@ arn:aws-cn:iam::<CN_ACCOUNT_ID>:role/<FED_ROLE>,arn:aws-cn:iam::<CN_ACCOUNT_ID>:
 | Attribute value | `3600` (≤ the role's max session duration) |
 | NameFormat | `Basic` |
 
-> The SAML **attribute names** above stay `aws.amazon.com/...` even in China — they are
+> The SAML **attribute names** above stay `aws.amazon.com/...` even in ZHY — they are
 > fixed AWS SAML claim keys. Only the **ACS endpoint** and the **ARNs** change to the
-> China values.
+> ZHY values.
 
 ### 3b. Export the IdP metadata
 
@@ -130,7 +130,7 @@ curl -s <KC_URL>/realms/aws-realm/protocol/saml/descriptor -o keycloak-idp-metad
 
 ---
 
-## 4. AWS China side — IAM SAML provider + federation role
+## 4. AWS ZHY side — IAM SAML provider + federation role
 
 ### 4a. Create the SAML provider
 
@@ -144,7 +144,7 @@ aws iam create-saml-provider \
 
 ### 4b. Create the federation role
 
-`trust-policy.json` (note `arn:aws-cn` and the **China** SAML audience):
+`trust-policy.json` (note `arn:aws-cn` and the **ZHY** SAML audience):
 
 ```json
 {
@@ -186,7 +186,7 @@ aws iam put-role-policy --role-name <FED_ROLE> --policy-name quicksight-access \
 The role ARN here **must match** the role ARN in the Keycloak Role attribute (step 3a-i).
 
 > **Verify QuickSight availability** in cn-northwest-1 before relying on this path; the
-> QuickSight (Amazon Quick) service footprint in China can differ from commercial regions.
+> QuickSight (Amazon Quick) service footprint in ZHY can differ from commercial regions.
 
 ---
 
@@ -194,7 +194,7 @@ The role ARN here **must match** the role ARN in the Keycloak Role attribute (st
 
 1. IdP-initiated:
    `<KC_URL>/realms/aws-realm/protocol/saml/clients/urn:amazon:webservices` → log in →
-   you should land in the **China** AWS console (`console.amazonaws.cn`) as the federated role.
+   you should land in the **ZHY** AWS console (`console.amazonaws.cn`) as the federated role.
 2. *"invalid SAML response"* → check, in order: Role attribute pair is `role,provider`
    and uses `arn:aws-cn`; metadata is current; assertion is signed; `SAML:aud` =
    `https://signin.amazonaws.cn/saml`.

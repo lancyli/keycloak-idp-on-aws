@@ -13,14 +13,14 @@ import { KeycloakHaConfig } from './config';
 import { KeycloakWorkload } from './keycloak-workload';
 
 /**
- * EksStack (China / ZHY variant).
+ * EksStack (ZHY / ZHY variant).
  *
  * EKS (Graviton) + a public-facing ALB that is the entry point (no CloudFront).
  * - ALB ingress is restricted to config.alb.allowedCidrs.
  * - If config.alb.certArn is set, the ALB terminates HTTPS (443) and redirects 80->443;
  *   otherwise it serves HTTP (80) only (testing).
- * - The AWS Load Balancer Controller image is pulled from the China regional ECR repo
- *   (config.eks.albControllerRepository), since CDK's default repo is unreachable in China.
+ * - The AWS Load Balancer Controller image is pulled from the ZHY regional ECR repo
+ *   (config.eks.albControllerRepository), since CDK's default repo is unreachable from ZHY.
  */
 export interface EksStackProps extends StackProps {
   readonly config: KeycloakHaConfig;
@@ -58,9 +58,9 @@ export class EksStack extends Stack {
       vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
       defaultCapacity: 0,
       endpointAccess,
-      // NOTE (China): the built-in `albController` option is intentionally NOT used
+      // NOTE (ZHY): the built-in `albController` option is intentionally NOT used
       // here because it fetches its Helm chart from https://aws.github.io/eks-charts
-      // (GitHub Pages), which is blocked in China. The AWS Load Balancer Controller
+      // (GitHub Pages), which is unreachable from some networks. The AWS Load Balancer Controller
       // is installed manually further below from a local chart asset (via S3).
       clusterLogging: [
         eks.ClusterLoggingTypes.API,
@@ -83,7 +83,7 @@ export class EksStack extends Stack {
     });
 
     // Grant cluster-admin to operator principals. Accepts both IAM Role and IAM User
-    // ARNs (China deployments commonly use arn:aws-cn:iam::...:user/...). Each entry
+    // ARNs (ZHY deployments commonly use arn:aws-cn:iam::...:user/...). Each entry
     // gets a unique, indexed construct id so multiple admins don't collide.
     config.eks.clusterAdminPrincipalArns.forEach((arn, i) => {
       if (arn.includes(':user/')) {
@@ -104,7 +104,7 @@ export class EksStack extends Stack {
     // resolveConflicts=OVERWRITE lets them adopt the self-managed defaults that
     // EKS bootstraps with the cluster; addonVersion is omitted so EKS selects the
     // default compatible with the cluster's Kubernetes version.
-    // CHINA: managed add-ons pull their images from the regional EKS ECR
+    // ZHY: managed add-ons pull their images from the regional EKS ECR
     // (cn-northwest-1: 961992271922) automatically, so no custom repository is
     // needed here (unlike the ALB Controller above).
     new eks.CfnAddon(this, 'VpcCniAddon', {
@@ -134,11 +134,11 @@ export class EksStack extends Stack {
     });
     metricsServerAddon.node.addDependency(nodeGroup);
 
-    // ---- AWS Load Balancer Controller (CHINA: manual, no GitHub) -----------
+    // ---- AWS Load Balancer Controller (ZHY: manual, no GitHub) -----------
     // Installs the same chart the built-in albController would, but from a LOCAL
-    // asset (delivered via the CDK bootstrap S3 bucket, reachable in China) instead
-    // of https://aws.github.io/eks-charts (blocked in China). The controller image
-    // is pulled from the China regional EKS ECR. IRSA service account + IAM policy
+    // asset (delivered via the CDK bootstrap S3 bucket, reachable from ZHY) instead
+    // of https://aws.github.io/eks-charts (unreachable from some networks). The controller image
+    // is pulled from the ZHY regional EKS ECR. IRSA service account + IAM policy
     // replicate what the albController construct does, with the IAM policy resources
     // rewritten to the aws-cn partition.
     const albSa = this.cluster.addServiceAccount('AlbSa', {
@@ -175,9 +175,9 @@ export class EksStack extends Stack {
     });
     albChart.node.addDependency(albSa);
 
-    // NOTE (China): Secrets Store CSI Driver is intentionally NOT used here. Its Helm
+    // NOTE (ZHY): Secrets Store CSI Driver is intentionally NOT used here. Its Helm
     // charts come from GitHub (kubernetes-sigs.github.io / aws.github.io), which is
-    // blocked in China. Keycloak's DB/admin credentials are instead injected via a
+    // unreachable from some networks. Keycloak's DB/admin credentials are instead injected via a
     // native Kubernetes Secret populated with CloudFormation dynamic references
     // (see keycloak-workload.ts) - no GitHub-hosted charts or images required.
 
