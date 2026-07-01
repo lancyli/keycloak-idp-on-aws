@@ -30,7 +30,7 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
 | EKS managed add-ons | `vpc-cni`, `kube-proxy`, `coredns`, `metrics-server` are installed as **EKS managed add-ons** (`resolveConflicts=OVERWRITE`) — visible in the console Add-ons tab and one-click upgradable; `metrics-server` powers CPU-based HPA. ZHY managed add-on images are pulled from the regional ECR (`961992271922`) automatically. |
 | ALB Controller version | `v2.17.1` (chart `1.17.1`, matches us-west-2). |
 | Secret injection | Secrets Store CSI Driver is **not** used (its Helm charts are GitHub-hosted, unreachable from some networks; and CFN dynamic references are not resolved inside eks manifests). DB/admin credentials are fetched at pod startup by an **IRSA init container** (aws-cli image) via `aws secretsmanager get-secret-value` (**using the regional STS endpoint**), written to an in-memory (tmpfs) volume, and `export`ed by the Keycloak container before launch. See "Database credentials" below. |
-| Container image mirroring | Keycloak (`quay.io`) and the aws-cli init image (`public.ecr.aws`) are unreliable/unreachable from some networks — **mirror them to this account's cn-northwest-1 ECR**. `config.keycloak.image` holds only `repo:tag` (e.g. `keycloak:26.1.4`); the full ECR prefix (`<account>.dkr.ecr.<region>.amazonaws.com.cn`) is prepended at deploy time (no account id in source). |
+| Container image mirroring | Keycloak (`quay.io`) and the aws-cli init image (`public.ecr.aws`) are unreliable/unreachable from some networks — **mirror them to this account's cn-northwest-1 ECR**. `config.keycloak.image` holds only `repo:tag` (e.g. `keycloak:26.6.4`); the full ECR prefix (`<account>.dkr.ecr.<region>.amazonaws.com.cn`) is prepended at deploy time (no account id in source). |
 | Route 53 | Not offered in ZHY — manage DNS at your registrar / ZHY DNS provider; point your ICP domain at the ALB. |
 | SAML federation | AWS sign-in is `https://signin.amazonaws.cn/saml` (configured later inside Keycloak). |
 
@@ -44,8 +44,8 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
   aws ecr create-repository --repository-name keycloak --region $R --profile china || true
   aws ecr create-repository --repository-name aws-cli  --region $R --profile china || true
   aws ecr get-login-password --region $R --profile china | docker login --username AWS --password-stdin $ECR
-  docker pull --platform linux/arm64 quay.io/keycloak/keycloak:26.1.4
-  docker tag quay.io/keycloak/keycloak:26.1.4 $ECR/keycloak:26.1.4 && docker push $ECR/keycloak:26.1.4
+  docker pull --platform linux/arm64 quay.io/keycloak/keycloak:26.6.4
+  docker tag quay.io/keycloak/keycloak:26.6.4 $ECR/keycloak:26.6.4 && docker push $ECR/keycloak:26.6.4
   docker pull --platform linux/arm64 public.ecr.aws/aws-cli/aws-cli:latest
   docker tag public.ecr.aws/aws-cli/aws-cli:latest $ECR/aws-cli:latest && docker push $ECR/aws-cli:latest
   ```
@@ -62,7 +62,7 @@ folder. Do not mix the two `node_modules` / `cdk.out`; deploy from this `ZHY/` f
     principal(s) (User or Role ARN). If empty, no human can `kubectl`/manage the cluster.
   - `eks.publicEndpointAllowedCidrs` — restrict the EKS public API endpoint to your egress CIDRs.
   - `eks.albControllerRepository` — ZHY EKS ECR (ZHY default `961992271922`; Beijing `918309763551`).
-  - `keycloak.image` — **`repo:tag` only** (default `keycloak:26.1.4`); the ECR prefix is prepended
+  - `keycloak.image` — **`repo:tag` only** (default `keycloak:26.6.4`); the ECR prefix is prepended
     from the account/region at deploy — do **not** hard-code the full account URI.
   - `alb.allowedCidrs` — source CIDR(s) allowed to reach the ALB (default `[]` = locked, nobody in).
   - `alb.certArn` / `alb.domainName` — for HTTPS (needs an ICP-filed domain + cn-northwest-1 ACM cert).
@@ -81,8 +81,8 @@ cannot be assumed from outside ZHY — confirm them in the cn-northwest-1 consol
   - [ ] `eks.clusterAdminPrincipalArns` = customer's `arn:aws-cn:iam::...` admin User/Role (else no kubectl access).
   - [ ] `eks.publicEndpointAllowedCidrs` = customer egress CIDRs (else EKS API is public).
   - [ ] `eks.albControllerRepository` = correct cn ECR (ZHY default `961992271922`; Beijing `918309763551`). **VERIFY**.
-  - [ ] `keycloak.image` = **`repo:tag`** (default `keycloak:26.1.4`, not a full account URI). **VERIFY** mirrored to this account's ECR (see Prerequisites).
-  - [ ] Keycloak `keycloak:26.1.4` and aws-cli init `aws-cli:latest` images both pushed (arm64) to this account's cn-northwest-1 ECR.
+  - [ ] `keycloak.image` = **`repo:tag`** (default `keycloak:26.6.4`, not a full account URI). **VERIFY** mirrored to this account's ECR (see Prerequisites).
+  - [ ] Keycloak `keycloak:26.6.4` and aws-cli init `aws-cli:latest` images both pushed (arm64) to this account's cn-northwest-1 ECR.
   - [ ] `alb.allowedCidrs` = your egress CIDR(s) (default `[]` = locked, nobody can reach it); for HTTPS set `alb.certArn` + `alb.domainName` (ICP-filed).
   - [ ] `keycloak.publicUrl` = empty for first deploy (pinned on the second pass — see below).
 - [ ] LB Controller chart downloaded/extracted to `charts/aws-load-balancer-controller/` (see Prerequisites; `charts/` is git-ignored); its image tag `v2.17.1` exists in the ZHY EKS ECR (`961992271922`).

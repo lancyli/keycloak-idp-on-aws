@@ -24,14 +24,14 @@
 # Optional env overrides:
 #   AWS_PROFILE        AWS CLI profile for the ZHY account   (default: china)
 #   REGION             AWS ZHY region                        (default: cn-northwest-1)
-#   KEYCLOAK_TAG       Keycloak image tag to mirror            (default: 26.1.4)
+#   KEYCLOAK_TAG       Keycloak image tag to mirror            (default: 26.6.4)
 #   ALB_CHART_VERSION  aws-load-balancer-controller chart ver  (default: 1.17.1)
 #
 set -euo pipefail
 
 PROFILE="${AWS_PROFILE:-china}"
 REGION="${REGION:-cn-northwest-1}"
-KEYCLOAK_TAG="${KEYCLOAK_TAG:-26.1.4}"
+KEYCLOAK_TAG="${KEYCLOAK_TAG:-26.6.4}"
 ALB_CHART_VERSION="${ALB_CHART_VERSION:-1.17.1}"
 CMD="${1:-all}"
 

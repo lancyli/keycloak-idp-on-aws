@@ -136,7 +136,7 @@ export const config: KeycloakHaConfig = {
   },
 
   keycloak: {
-    image: 'quay.io/keycloak/keycloak:26.1.4',
+    image: 'quay.io/keycloak/keycloak:26.6.4',
     namespace: 'keycloak',
     publicUrl: '', // First deploy: leave empty. After CloudFront exists, paste the keycloak-ha-cloudfront.KeycloakPublicUrl output here and redeploy keycloak-ha-eks to pin the https KC_HOSTNAME.
     replicas: 2,

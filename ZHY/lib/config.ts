@@ -142,7 +142,7 @@ export const config: KeycloakHaConfig = {
     // unreliable/unreachable from some networks). Stored as repo:tag only; the full ECR registry
     // (<account>.dkr.ecr.<region>.amazonaws.com.cn) is prepended at deploy time so no
     // account id is hard-coded in source.
-    image: 'keycloak:26.1.4',
+    image: 'keycloak:26.6.4',
     namespace: 'keycloak',
     publicUrl: '', // set to https://<icp-domain> or http://<alb-dns> after first deploy
     replicas: 2,
