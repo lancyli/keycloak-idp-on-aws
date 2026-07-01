@@ -8,7 +8,7 @@
  *  - Partition arn:aws-cn:* is applied automatically by CDK when region is a cn region.
  *  - ALB Controller image MUST come from the China regional ECR (CDK still defaults the
  *    repo to a us-west-2 account, which is unreachable from China) -> eks.albControllerRepository.
- *  - Graviton classes: m6g/r6g are broadly available in cn-northwest-1; r7g/m7g may not be.
+ *  - Graviton classes: m7g/r7g (Graviton3) verified available in cn-northwest-1 (EKS nodes + Aurora PG).
  *  - EKS version: China regions lag global; verify supported versions and keep the
  *    kubectl layer (package.json @aws-cdk/lambda-layer-kubectl-vXX) matched to it.
  *  - HTTPS without CloudFront: put an ACM cert (cn-northwest-1) on the ALB. The domain
@@ -111,10 +111,12 @@ export const config: KeycloakHaConfig = {
 
   eks: {
     clusterName: 'keycloak-ha-cn',
-    // VERIFY supported versions: `aws eks describe-cluster-versions --region cn-northwest-1`.
+    // Verified via `aws eks describe-cluster-versions --region cn-northwest-1 --profile china`:
+    // cn-northwest-1 supports up to 1.36. Pinned to 1.35 to match the us-west-2 variant and
+    // the available kubectl layer (no @aws-cdk/lambda-layer-kubectl-v36 package exists yet).
     // Keep this in sync with the @aws-cdk/lambda-layer-kubectl-vXX package in package.json.
-    version: '1.32',
-    nodeInstanceTypes: ['m6g.large'], // Graviton2 - broadly available in cn-northwest-1
+    version: '1.35',
+    nodeInstanceTypes: ['m7g.large'], // Graviton3 - verified available in cn-northwest-1 (matches us-west-2)
     nodeMinSize: 3,
     nodeDesiredSize: 3,
     nodeMaxSize: 6,
@@ -128,7 +130,7 @@ export const config: KeycloakHaConfig = {
 
   aurora: {
     engineVersion: '16.4',
-    instanceClass: 'r6g.large', // Graviton2 - verify Aurora PG availability in cn-northwest-1
+    instanceClass: 'r7g.large', // Graviton3 - verified orderable for Aurora PG in cn-northwest-1 (matches us-west-2)
     readers: 1,
     databaseName: 'keycloak',
     backupRetentionDays: 14,

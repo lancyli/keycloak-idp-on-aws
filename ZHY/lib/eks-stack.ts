@@ -4,7 +4,7 @@ import * as eks from 'aws-cdk-lib/aws-eks';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import { KubectlV32Layer } from '@aws-cdk/lambda-layer-kubectl-v32';
+import { KubectlV35Layer } from '@aws-cdk/lambda-layer-kubectl-v35';
 import { Construct } from 'constructs';
 import { KeycloakHaConfig } from './config';
 import { KeycloakWorkload } from './keycloak-workload';
@@ -50,13 +50,13 @@ export class EksStack extends Stack {
     this.cluster = new eks.Cluster(this, 'Cluster', {
       clusterName: config.eks.clusterName,
       version: eks.KubernetesVersion.of(config.eks.version),
-      kubectlLayer: new KubectlV32Layer(this, 'KubectlLayer'),
+      kubectlLayer: new KubectlV35Layer(this, 'KubectlLayer'),
       vpc,
       vpcSubnets: [{ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }],
       defaultCapacity: 0,
       endpointAccess,
       albController: {
-        version: eks.AlbControllerVersion.V2_8_2,
+        version: eks.AlbControllerVersion.V2_17_1,
         // CHINA: pull the controller image from the China regional ECR.
         repository: config.eks.albControllerRepository,
       },
@@ -68,7 +68,7 @@ export class EksStack extends Stack {
     });
 
     // ---- ARM (Graviton) managed node group ---------------------------------
-    this.cluster.addNodegroupCapacity('ArmNodeGroup', {
+    const nodeGroup = this.cluster.addNodegroupCapacity('ArmNodeGroup', {
       amiType: eks.NodegroupAmiType.AL2023_ARM_64_STANDARD,
       instanceTypes: config.eks.nodeInstanceTypes.map((t) => new ec2.InstanceType(t)),
       minSize: config.eks.nodeMinSize,
@@ -95,6 +95,42 @@ export class EksStack extends Stack {
         );
       }
     });
+
+    // ---- EKS managed add-ons (consistent with the us-west-2 variant) --------
+    // Register the core components as EKS-managed add-ons so they appear in the
+    // console "Add-ons" tab and can be one-click upgraded / version-checked.
+    // resolveConflicts=OVERWRITE lets them adopt the self-managed defaults that
+    // EKS bootstraps with the cluster; addonVersion is omitted so EKS selects the
+    // default compatible with the cluster's Kubernetes version.
+    // CHINA: managed add-ons pull their images from the regional EKS ECR
+    // (cn-northwest-1: 961992271922) automatically, so no custom repository is
+    // needed here (unlike the ALB Controller above).
+    new eks.CfnAddon(this, 'VpcCniAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'vpc-cni',
+      resolveConflicts: 'OVERWRITE',
+    });
+    new eks.CfnAddon(this, 'KubeProxyAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'kube-proxy',
+      resolveConflicts: 'OVERWRITE',
+    });
+    const coreDnsAddon = new eks.CfnAddon(this, 'CoreDnsAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'coredns',
+      resolveConflicts: 'OVERWRITE',
+    });
+    // CoreDNS pods must schedule onto worker nodes, so wait for the node group.
+    coreDnsAddon.node.addDependency(nodeGroup);
+
+    // metrics-server: required for CPU-based HorizontalPodAutoscaler (HPA) to read
+    // pod metrics. Without it the Keycloak HPA reports cpu:<unknown> and never scales.
+    const metricsServerAddon = new eks.CfnAddon(this, 'MetricsServerAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'metrics-server',
+      resolveConflicts: 'OVERWRITE',
+    });
+    metricsServerAddon.node.addDependency(nodeGroup);
 
     // ---- Secrets Store CSI Driver + AWS provider ---------------------------
     // NOTE (China): these helm images pull from registry.k8s.io / public.ecr.aws,
