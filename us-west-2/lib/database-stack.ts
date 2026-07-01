@@ -37,7 +37,7 @@ export class DatabaseStack extends Stack {
 
     const parameterGroup = new rds.ParameterGroup(this, 'ClusterPg', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.of(config.aurora.engineVersion, '16'),
+        version: rds.AuroraPostgresEngineVersion.of(config.aurora.engineVersion, '18'),
       }),
       parameters: {
         // Enforce TLS for client connections to the database.
@@ -59,7 +59,7 @@ export class DatabaseStack extends Stack {
 
     this.cluster = new rds.DatabaseCluster(this, 'Aurora', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.of(config.aurora.engineVersion, '16'),
+        version: rds.AuroraPostgresEngineVersion.of(config.aurora.engineVersion, '18'),
       }),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },

@@ -37,7 +37,7 @@ To upgrade to **end-to-end HTTPS**, set `cloudfront.customDomain.enabled = true`
 | Stack | Contents |
 |-------|----------|
 | `keycloak-ha-network` | VPC (3 AZ), public/private/isolated subnets, NAT, VPC endpoints |
-| `keycloak-ha-database` | Aurora PostgreSQL 16 (Graviton), Writer+Reader, Secrets Manager, SG |
+| `keycloak-ha-database` | Aurora PostgreSQL 18 (Graviton), Writer+Reader, Secrets Manager, SG |
 | `keycloak-ha-eks` | EKS cluster, ARM managed node group, ALB Controller, Secrets Store CSI, ALB + target group, **and the Keycloak workload** (Deployment/Service/HPA/PDB/TargetGroupBinding + SecretProviderClass + admin secret) |
 | `keycloak-ha-cloudfront` | CloudFront distribution fronting the ALB |
 

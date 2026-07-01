@@ -129,7 +129,7 @@ export const config: KeycloakHaConfig = {
   },
 
   aurora: {
-    engineVersion: '16.4',
+    engineVersion: '18.3',
     instanceClass: 'r7g.large', // Graviton3 - verified orderable for Aurora PG in cn-northwest-1 (matches us-west-2)
     readers: 1,
     databaseName: 'keycloak',

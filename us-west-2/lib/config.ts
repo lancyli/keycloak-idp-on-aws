@@ -127,7 +127,7 @@ export const config: KeycloakHaConfig = {
   },
 
   aurora: {
-    engineVersion: '16.4',
+    engineVersion: '18.3',
     instanceClass: 'r7g.large', // Graviton3
     readers: 1,
     databaseName: 'keycloak',

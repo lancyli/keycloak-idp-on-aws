@@ -88,7 +88,7 @@ cannot be assumed from outside ZHY — confirm them in the cn-northwest-1 consol
 - [ ] LB Controller chart downloaded/extracted to `charts/aws-load-balancer-controller/` (see Prerequisites; `charts/` is git-ignored); its image tag `v2.17.1` exists in the ZHY EKS ECR (`961992271922`).
 - [ ] EKS version `1.35` (verified via china profile that cn-northwest-1 offers 1.30–**1.36**;
       pinned to 1.35 to match `@aws-cdk/lambda-layer-kubectl-v35`).
-- [ ] Aurora PostgreSQL `16.4` + `r7g.large` and node `m7g.large` — verified available in cn-northwest-1 (all 3 AZs) via the china profile.
+- [ ] Aurora PostgreSQL `18.3` + `r7g.large` and node `m7g.large` — verified available in cn-northwest-1 (all 3 AZs) via the china profile.
 - [ ] **VERIFY** EKS, Aurora, NAT/EIP quota headroom in the account.
 
 ## Deploy
