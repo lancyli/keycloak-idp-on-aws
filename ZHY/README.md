@@ -96,7 +96,11 @@ cannot be assumed from outside ZHY — confirm them in the cn-northwest-1 consol
 > **One-command script**: the prep (image mirroring, chart pull) and the deploy can all be run
 > with `deploy-china.sh` — `AWS_PROFILE=<your-china-profile> ./deploy-china.sh all` (the account
 > id is auto-detected). Sub-commands: `prep` (mirror + chart only), `deploy` (build + deploy only),
-> `clean-secret` (remove the retained admin secret before a retry). The manual equivalent below is
+> `clean-secret` (remove the retained admin secret before a retry), and `pin-hostname` (optional:
+> pin `KC_HOSTNAME` — `PUBLIC_URL=https://<your-icp-domain> ./deploy-china.sh pin-hostname`, or omit
+> `PUBLIC_URL` to use `http://<alb-dns>`; not needed for HTTP testing, useful once you serve HTTPS.
+> Note: it redeploys the eks stack and reconciles the ALB SG to `alb.allowedCidrs` — set your egress
+> CIDR there first so hand-added rules are not dropped). The manual equivalent below is
 > for understanding / troubleshooting.
 
 **ZHY-critical**: the `cdk` CLI resolves the account and calls STS. By default it uses the

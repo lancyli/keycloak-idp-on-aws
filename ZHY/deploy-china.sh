@@ -14,7 +14,12 @@
 #   AWS_PROFILE=china ./deploy-china.sh all           # prep (mirror + chart) then deploy
 #   AWS_PROFILE=china ./deploy-china.sh prep          # only mirror images + pull chart (needs Internet)
 #   AWS_PROFILE=china ./deploy-china.sh deploy        # only build + bootstrap + deploy (needs ZHY creds)
+#   AWS_PROFILE=china ./deploy-china.sh pin-hostname   # pin KC_HOSTNAME (publicUrl) and redeploy the eks stack
 #   AWS_PROFILE=china ./deploy-china.sh clean-secret  # delete the retained admin secret before a retry
+#
+# pin-hostname URL selection:
+#   - PUBLIC_URL env, if set (e.g. PUBLIC_URL=https://idp.example.cn for an ICP domain + HTTPS), else
+#   - http://<ALB DNS> read from the eks stack output (HTTP testing).
 #
 # Optional env overrides:
 #   AWS_PROFILE        AWS CLI profile for the ZHY account   (default: china)
@@ -123,10 +128,50 @@ clean_secret() {
     && log "deleted" || log "not present (nothing to do)"
 }
 
+# Pin KC_HOSTNAME (keycloak.publicUrl) and redeploy the eks stack.
+# For HTTP testing this is optional (empty publicUrl -> hostname is derived from forwarded headers).
+# It becomes useful once you serve Keycloak on a fixed URL (an ICP domain over HTTPS, or a pinned ALB DNS).
+pin_hostname() {
+  need npx; need aws; need perl
+  resolve_account
+  export CDK_DEFAULT_ACCOUNT="$ACCOUNT" CDK_DEFAULT_REGION="$REGION"
+
+  local url="${PUBLIC_URL:-}"
+  if [ -z "$url" ]; then
+    log "No PUBLIC_URL given — reading ALB DNS from the eks stack output (HTTP testing URL)"
+    local albdns
+    albdns="$(aws cloudformation describe-stacks --stack-name keycloak-ha-cn-eks --region "$REGION" --profile "$PROFILE" \
+      --query "Stacks[0].Outputs[?OutputKey=='AlbDnsName'].OutputValue" --output text 2>/dev/null || true)"
+    case "${albdns:-}" in ''|None) die "AlbDnsName output not found — run '$0 deploy' first";; esac
+    url="http://${albdns}"
+  fi
+  log "Will pin keycloak.publicUrl = $url"
+
+  # IMPORTANT: redeploying the eks stack reconciles the ALB security group to config.alb.allowedCidrs.
+  # If you added ingress rules to the ALB SG by hand, put them in config.alb.allowedCidrs FIRST,
+  # otherwise this redeploy will remove them and you will lose browser access.
+  if grep -qE 'allowedCidrs:[[:space:]]*\[\]' lib/config.ts 2>/dev/null; then
+    log "WARNING: alb.allowedCidrs is EMPTY in lib/config.ts."
+    log "         Redeploying will reconcile the ALB SG to NO ingress and drop any hand-added rules."
+    log "         Put your egress CIDR in alb.allowedCidrs before continuing, or re-add the SG rule after."
+    if [ -t 0 ]; then printf 'Continue anyway? [y/N] '; read -r ans; [ "$ans" = "y" ] || die "aborted by user"; fi
+  fi
+
+  log "Pinning keycloak.publicUrl in lib/config.ts"
+  perl -i -pe "s#(publicUrl:[[:space:]]*)'[^']*'#\${1}'${url}'#" lib/config.ts
+  grep -nE "publicUrl:[[:space:]]*'" lib/config.ts | head -1
+
+  log "npm run build"; npm run build
+  log "Redeploying keycloak-ha-cn-eks to apply KC_HOSTNAME"
+  npx cdk deploy keycloak-ha-cn-eks --require-approval never
+  log "KC_HOSTNAME pinned to $url"
+}
+
 case "$CMD" in
   prep)         prep ;;
   deploy)       deploy ;;
   all)          prep; deploy ;;
+  pin-hostname) pin_hostname ;;
   clean-secret) clean_secret ;;
-  *) die "usage: $0 {all|prep|deploy|clean-secret}" ;;
+  *) die "usage: $0 {all|prep|deploy|pin-hostname|clean-secret}" ;;
 esac
