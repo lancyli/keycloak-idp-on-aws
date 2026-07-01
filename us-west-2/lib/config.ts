@@ -114,7 +114,7 @@ export const config: KeycloakHaConfig = {
 
   eks: {
     clusterName: 'keycloak-ha',
-    version: '1.36', // latest EKS version supported in us-west-2
+    version: '1.35', // stepwise upgrade 1.30 -> 1.36 (EKS allows only one minor at a time); live cluster on 1.35 (standard support)
     nodeInstanceTypes: ['m7g.large'], // Graviton3
     nodeMinSize: 3,
     nodeDesiredSize: 3,

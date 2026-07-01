@@ -73,7 +73,7 @@ export class EksStack extends Stack {
     });
 
     // ---- ARM (Graviton) managed node group ---------------------------------
-    this.cluster.addNodegroupCapacity('ArmNodeGroup', {
+    const nodeGroup = this.cluster.addNodegroupCapacity('ArmNodeGroup', {
       amiType: eks.NodegroupAmiType.AL2023_ARM_64_STANDARD,
       instanceTypes: config.eks.nodeInstanceTypes.map((t) => new ec2.InstanceType(t)),
       minSize: config.eks.nodeMinSize,
@@ -100,6 +100,44 @@ export class EksStack extends Stack {
         );
       }
     });
+
+    // ---- EKS managed add-ons ------------------------------------------------
+    // Register the core components as EKS-managed add-ons so they appear in the
+    // console "Add-ons" tab and can be one-click upgraded (and auto version-checked
+    // against the cluster K8s version on future upgrades).
+    //
+    // These components were installed as SELF-MANAGED defaults when the cluster
+    // was bootstrapped, so `resolveConflicts: OVERWRITE` is required for the
+    // managed add-on to adopt/overwrite the existing self-managed resources.
+    // addonVersion is intentionally omitted so EKS selects the default version
+    // that is compatible with the cluster's Kubernetes version.
+    new eks.CfnAddon(this, 'VpcCniAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'vpc-cni',
+      resolveConflicts: 'OVERWRITE',
+    });
+    new eks.CfnAddon(this, 'KubeProxyAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'kube-proxy',
+      resolveConflicts: 'OVERWRITE',
+    });
+    const coreDnsAddon = new eks.CfnAddon(this, 'CoreDnsAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'coredns',
+      resolveConflicts: 'OVERWRITE',
+    });
+    // CoreDNS pods must schedule onto worker nodes, so wait for the node group.
+    coreDnsAddon.node.addDependency(nodeGroup);
+
+    // metrics-server: required for CPU-based HorizontalPodAutoscaler (HPA) to
+    // read pod metrics. Without it, the Keycloak HPA reports cpu:<unknown> and
+    // never scales. Also depends on the node group so its pods can schedule.
+    const metricsServerAddon = new eks.CfnAddon(this, 'MetricsServerAddon', {
+      clusterName: this.cluster.clusterName,
+      addonName: 'metrics-server',
+      resolveConflicts: 'OVERWRITE',
+    });
+    metricsServerAddon.node.addDependency(nodeGroup);
 
     // ---- Secrets Store CSI Driver + AWS provider ---------------------------
     const csiDriver = this.cluster.addHelmChart('SecretsStoreCsiDriver', {

@@ -18,9 +18,13 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "aws-cdk-lib": "^2.224.0",
+    "@aws-cdk/lambda-layer-kubectl-v31": "^2.1.0",
+    "@aws-cdk/lambda-layer-kubectl-v32": "^2.1.0",
+    "@aws-cdk/lambda-layer-kubectl-v33": "^2.2.2",
+    "@aws-cdk/lambda-layer-kubectl-v34": "^2.2.2",
     "@aws-cdk/lambda-layer-kubectl-v35": "^2.0.0",
-    "constructs": "^10.3.0",
-    "aws-cdk": "^2.1029.0"
+    "aws-cdk": "^2.1029.0",
+    "aws-cdk-lib": "^2.224.0",
+    "constructs": "^10.3.0"
   }
 }
